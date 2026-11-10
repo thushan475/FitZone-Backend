@@ -1,3 +1,4 @@
+
 export type UserRole = "ADMIN" | "TRAINER" | "MEMBER";
 
 export interface IUser {
@@ -7,4 +8,7 @@ export interface IUser {
     phone: string;
     role: UserRole;
     isActive: boolean;
+    specialization?: string;
+    experience?: number;
+    qualifications?: string;
 }

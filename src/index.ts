@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./configs/database";
 import authRoutes from "./routes/auth.routes";
 import memberRoutes from "./routes/member.routes";
+import trainerRoutes from "./routes/trainer.routes";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
+app.use("/api/trainers", trainerRoutes);
 
 const PORT = process.env.PORT || 5000;
 

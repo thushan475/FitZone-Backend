@@ -1,3 +1,4 @@
+
 import mongoose, { Schema } from "mongoose";
 import { IUser } from "../interfaces/user.interface";
 
@@ -31,6 +32,18 @@ const userSchema = new Schema<IUser>(
         isActive: {
             type: Boolean,
             default: true
+        },
+        specialization: {
+            type: String,
+            trim: true
+        },
+        experience: {
+            type: Number,
+            min: 0
+        },
+        qualifications: {
+            type: String,
+            trim: true
         }
     },
     {
