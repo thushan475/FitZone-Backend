@@ -1,3 +1,4 @@
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -10,6 +11,7 @@ import subscriptionRoutes from "./routes/subscription.routes";
 import attendanceRoutes from "./routes/attendance.routes";
 import workoutPlanRoutes from "./routes/workout-plan.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import paymentRoutes from "./routes/payment.routes";
 
 dotenv.config();
 
@@ -32,6 +34,7 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/workout-plans", workoutPlanRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/payments", paymentRoutes);
 
 const PORT = process.env.PORT || 5000;
 
