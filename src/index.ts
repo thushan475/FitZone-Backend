@@ -9,6 +9,7 @@ import membershipPlanRoutes from "./routes/membership-plan.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
 import attendanceRoutes from "./routes/attendance.routes";
 import workoutPlanRoutes from "./routes/workout-plan.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use("/api/membership-plans", membershipPlanRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/workout-plans", workoutPlanRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 const PORT = process.env.PORT || 5000;
 
