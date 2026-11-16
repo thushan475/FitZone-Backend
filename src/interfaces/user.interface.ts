@@ -1,5 +1,4 @@
-
-export type UserRole = "ADMIN" | "TRAINER" | "MEMBER";
+export type UserRole = "ADMIN" | "MEMBER";
 
 export interface IUser {
     name: string;
@@ -8,9 +7,6 @@ export interface IUser {
     phone: string;
     role: UserRole;
     isActive: boolean;
-    specialization?: string;
-    experience?: number;
-    qualifications?: string;
     resetPasswordToken?: string | null;
     resetPasswordExpires?: Date | null;
 }

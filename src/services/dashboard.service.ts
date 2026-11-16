@@ -1,5 +1,6 @@
 
 import User from "../models/user.model";
+import Trainer from "../models/trainer.model";
 import Subscription from "../models/subscription.model";
 import Attendance from "../models/attendance.model";
 import Payment from "../models/payment.model";
@@ -16,8 +17,7 @@ export const getDashboardData = async () => {
             role: "MEMBER",
             isActive: true
         }),
-        User.countDocuments({
-            role: "TRAINER",
+        Trainer.countDocuments({
             isActive: true
         }),
         Subscription.countDocuments({

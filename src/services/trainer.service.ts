@@ -1,11 +1,8 @@
-
-import User from "../models/user.model";
-import bcrypt from "bcryptjs";
+import Trainer from "../models/trainer.model";
 
 interface CreateTrainerInput {
     name: string;
     email: string;
-    password: string;
     phone: string;
     specialization: string;
     experience?: number;
@@ -34,10 +31,6 @@ const createTrainer = async (data: CreateTrainerInput) => {
         throw new Error("Invalid email format");
     }
 
-    if (!data.password || data.password.length < 8) {
-        throw new Error("Password must be at least 8 characters");
-    }
-
     if (!data.phone?.trim() || !/^0\d{9}$/.test(data.phone.trim())) {
         throw new Error("Invalid phone number");
     }
@@ -53,49 +46,34 @@ const createTrainer = async (data: CreateTrainerInput) => {
         throw new Error("Experience must be a valid non-negative number");
     }
 
-    const existingUser = await User.findOne({
+    const existingTrainer = await Trainer.findOne({
         email: data.email.trim().toLowerCase()
     });
 
-    if (existingUser) {
+    if (existingTrainer) {
         throw new Error("Email already registered");
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    const trainer = await User.create({
+    return await Trainer.create({
         name: data.name.trim(),
         email: data.email.trim().toLowerCase(),
-        password: hashedPassword,
         phone: data.phone.trim(),
-        role: "TRAINER",
         specialization: data.specialization.trim(),
         experience: data.experience,
         qualifications: data.qualifications?.trim(),
         isActive: true
     });
-
-    const trainerObject = trainer.toObject();
-    const { password, ...safeTrainer } = trainerObject;
-
-    return safeTrainer;
 };
 
 const getAllTrainers = async () => {
-    const trainers = await User.find({
-        role: "TRAINER",
-        isActive: true
-    }).select("-password");
-
-    return trainers;
+    return await Trainer.find({ isActive: true });
 };
 
 const getTrainerById = async (id: string) => {
-    const trainer = await User.findOne({
+    const trainer = await Trainer.findOne({
         _id: id,
-        role: "TRAINER",
         isActive: true
-    }).select("-password");
+    });
 
     if (!trainer) {
         throw new Error("Trainer not found");
@@ -116,36 +94,30 @@ const updateTrainer = async (
         if (!data.name.trim()) {
             throw new Error("Name cannot be empty");
         }
-
         data.name = data.name.trim();
     }
 
     if (data.email !== undefined) {
-        if (!data.email.trim()) {
-            throw new Error("Email cannot be empty");
-        }
-
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
             throw new Error("Invalid email format");
         }
 
-        const existingUser = await User.findOne({
-            email: data.email.trim().toLowerCase(),
+        data.email = data.email.trim().toLowerCase();
+
+        const existingTrainer = await Trainer.findOne({
+            email: data.email,
             _id: { $ne: id }
         });
 
-        if (existingUser) {
+        if (existingTrainer) {
             throw new Error("Email already registered");
         }
-
-        data.email = data.email.trim().toLowerCase();
     }
 
     if (data.phone !== undefined) {
         if (!/^0\d{9}$/.test(data.phone.trim())) {
             throw new Error("Invalid phone number");
         }
-
         data.phone = data.phone.trim();
     }
 
@@ -153,7 +125,6 @@ const updateTrainer = async (
         if (!data.specialization.trim()) {
             throw new Error("Specialization cannot be empty");
         }
-
         data.specialization = data.specialization.trim();
     }
 
@@ -168,10 +139,9 @@ const updateTrainer = async (
         data.qualifications = data.qualifications.trim();
     }
 
-    const trainer = await User.findOneAndUpdate(
+    const trainer = await Trainer.findOneAndUpdate(
         {
             _id: id,
-            role: "TRAINER",
             isActive: true
         },
         {
@@ -181,7 +151,7 @@ const updateTrainer = async (
             new: true,
             runValidators: true
         }
-    ).select("-password");
+    );
 
     if (!trainer) {
         throw new Error("Trainer not found");
@@ -191,21 +161,18 @@ const updateTrainer = async (
 };
 
 const deleteTrainer = async (id: string) => {
-    const trainer = await User.findOneAndUpdate(
+    const trainer = await Trainer.findOneAndUpdate(
         {
             _id: id,
-            role: "TRAINER",
             isActive: true
         },
         {
-            $set: {
-                isActive: false
-            }
+            $set: { isActive: false }
         },
         {
             new: true
         }
-    ).select("-password");
+    );
 
     if (!trainer) {
         throw new Error("Trainer not found");

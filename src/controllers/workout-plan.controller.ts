@@ -5,7 +5,8 @@ import {
     getAllWorkoutPlans,
     getWorkoutPlanById,
     updateWorkoutPlan,
-    deleteWorkoutPlan
+    deleteWorkoutPlan,
+    getMyWorkoutPlans
 } from "../services/workout-plan.service";
 
 const getId = (value: string | string[] | undefined): string => {
@@ -111,6 +112,34 @@ export const remove = ((req, res) => {
             res.status(getStatusCode(message)).json({
                 success: false,
                 message
+            });
+        });
+}) as RequestHandler;
+
+
+export const getMine = ((req, res) => {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+        res.status(401).json({
+            success: false,
+            message: "User authentication required"
+        });
+        return;
+    }
+
+    getMyWorkoutPlans(userId)
+        .then(data => {
+            res.status(200).json({
+                success: true,
+                message: "Your workout plans retrieved successfully",
+                data
+            });
+        })
+        .catch(error => {
+            res.status(500).json({
+                success: false,
+                message: getErrorMessage(error)
             });
         });
 }) as RequestHandler;

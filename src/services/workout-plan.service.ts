@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import WorkoutPlan from "../models/workout-plan.model";
 import User from "../models/user.model";
+import Trainer from "../models/trainer.model";
 import {
     WorkoutGoal,
     IWorkoutExercise
@@ -116,7 +117,7 @@ const validateExercises = (
 const populateWorkoutPlan = (query: any) => {
     return query
         .populate("member", "name email phone")
-        .populate("trainer", "name email phone specialization");
+        .populate("trainer", "name email phone specialization experience qualifications");
 };
 
 export const createWorkoutPlan = async (
@@ -135,27 +136,15 @@ export const createWorkoutPlan = async (
     validateObjectId(data.memberId);
     validateObjectId(data.trainerId);
 
-    if (data.memberId === data.trainerId) {
-        throw new Error("Member and trainer must be different users");
-    }
+    const member = await User.findById(data.memberId);
 
-    const member = await User.findOne({
-        _id: data.memberId,
-        role: "MEMBER",
-        isActive: true
-    });
-
-    if (!member) {
+    if (!member || member.role !== "MEMBER" || !member.isActive) {
         throw new Error("Active member not found");
     }
 
-    const trainer = await User.findOne({
-        _id: data.trainerId,
-        role: "TRAINER",
-        isActive: true
-    });
+    const trainer = await Trainer.findById(data.trainerId);
 
-    if (!trainer) {
+    if (!trainer || !trainer.isActive) {
         throw new Error("Active trainer not found");
     }
 
@@ -193,8 +182,8 @@ export const createWorkoutPlan = async (
     const workoutPlan = await WorkoutPlan.create({
         title: data.title.trim(),
         description: data.description?.trim(),
-        member: member._id,
-        trainer: trainer._id,
+        member: new mongoose.Types.ObjectId(data.memberId),
+        trainer: new mongoose.Types.ObjectId(data.trainerId),
         goal,
         startDate,
         endDate,
@@ -337,4 +326,15 @@ export const deleteWorkoutPlan = async (id: string) => {
     }
 
     return workoutPlan;
+};
+export const getMyWorkoutPlans = async (userId: string) => {
+    const plans = await WorkoutPlan.find({ member: userId })
+        .populate("member", "name email phone")
+        .populate(
+            "trainer",
+            "name email phone specialization experience qualifications"
+        )
+        .sort({ createdAt: -1 });
+
+    return plans;
 };

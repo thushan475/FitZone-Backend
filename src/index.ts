@@ -2,9 +2,12 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+
 import connectDB from "./configs/database";
+
 import authRoutes from "./routes/auth.routes";
 import memberRoutes from "./routes/member.routes";
+import memberPortalRoutes from "./routes/member-portal.routes";
 import trainerRoutes from "./routes/trainer.routes";
 import membershipPlanRoutes from "./routes/membership-plan.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
@@ -29,6 +32,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
+app.use("/api/member", memberPortalRoutes);
 app.use("/api/trainers", trainerRoutes);
 app.use("/api/membership-plans", membershipPlanRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);

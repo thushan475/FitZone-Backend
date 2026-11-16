@@ -5,7 +5,8 @@ import {
     getAll,
     getById,
     update,
-    remove
+    remove,
+    getMine
 } from "../controllers/workout-plan.controller";
 import authenticate from "../middlewares/auth.middleware";
 import authorizeRoles from "../middlewares/role.middleware";
@@ -13,6 +14,9 @@ import authorizeRoles from "../middlewares/role.middleware";
 const router = Router();
 
 router.post("/", authenticate, authorizeRoles("ADMIN"), create);
+
+router.get("/my", authenticate, authorizeRoles("MEMBER"), getMine);
+
 router.get("/", authenticate, authorizeRoles("ADMIN"), getAll);
 router.get("/:id", authenticate, authorizeRoles("ADMIN"), getById);
 router.put("/:id", authenticate, authorizeRoles("ADMIN"), update);

@@ -51,7 +51,7 @@ const workoutPlanSchema = new Schema<IWorkoutPlan>(
         },
         trainer: {
             type: Schema.Types.ObjectId,
-            ref: "User",
+            ref: "Trainer",
             required: true
         },
         goal: {
