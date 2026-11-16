@@ -17,6 +17,13 @@ interface UpdateAttendanceInput {
     notes?: string;
 }
 
+interface AttendanceFilter {
+    memberId?: string;
+    from?: string;
+    to?: string;
+    status?: AttendanceStatus;
+}
+
 const getDayRange = (date: Date) => {
     const start = new Date(date);
     start.setUTCHours(0, 0, 0, 0);
@@ -28,6 +35,10 @@ const getDayRange = (date: Date) => {
 };
 
 const validateDate = (value: string): Date => {
+    if (typeof value !== "string" || !value.trim()) {
+        throw new Error("Valid date is required");
+    }
+
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
@@ -50,8 +61,22 @@ const populateAttendance = (query: any) => {
 };
 
 export const createAttendance = async (data: CreateAttendanceInput) => {
-    if (!data.memberId || !mongoose.Types.ObjectId.isValid(data.memberId)) {
+    if (!data || typeof data !== "object") {
+        throw new Error("Attendance data is required");
+    }
+
+    if (
+        typeof data.memberId !== "string" ||
+        !mongoose.Types.ObjectId.isValid(data.memberId)
+    ) {
         throw new Error("Invalid Member ID");
+    }
+
+    if (
+        data.notes !== undefined &&
+        typeof data.notes !== "string"
+    ) {
+        throw new Error("Notes must be a valid string");
     }
 
     const member = await User.findOne({
@@ -70,6 +95,10 @@ export const createAttendance = async (data: CreateAttendanceInput) => {
 
     const { start, end } = getDayRange(checkIn);
 
+    const status = data.status
+        ? validateStatus(data.status)
+        : "PRESENT";
+
     const existingAttendance = await Attendance.findOne({
         member: member._id,
         attendanceDate: {
@@ -82,22 +111,12 @@ export const createAttendance = async (data: CreateAttendanceInput) => {
         throw new Error("Attendance already recorded for this member today");
     }
 
-    const status = data.status
-        ? validateStatus(data.status)
-        : "PRESENT";
-
-    const notes = data.notes?.trim();
-
-    if (data.notes !== undefined && typeof data.notes !== "string") {
-        throw new Error("Notes must be a valid string");
-    }
-
     const attendance = await Attendance.create({
         member: member._id,
         attendanceDate: start,
         checkIn,
         status,
-        notes
+        notes: data.notes?.trim()
     });
 
     return populateAttendance(
@@ -105,9 +124,49 @@ export const createAttendance = async (data: CreateAttendanceInput) => {
     );
 };
 
-export const getAllAttendance = async () => {
+export const getAllAttendance = async (filters: AttendanceFilter = {}) => {
+    const query: Record<string, any> = {};
+
+    if (filters.memberId) {
+        if (!mongoose.Types.ObjectId.isValid(filters.memberId)) {
+            throw new Error("Invalid Member ID");
+        }
+
+        query.member = filters.memberId;
+    }
+
+    if (filters.status) {
+        query.status = validateStatus(filters.status);
+    }
+
+    if (filters.from || filters.to) {
+        query.attendanceDate = {};
+
+        if (filters.from) {
+            query.attendanceDate.$gte = getDayRange(
+                validateDate(filters.from)
+            ).start;
+        }
+
+        if (filters.to) {
+            const toDate = getDayRange(validateDate(filters.to));
+            query.attendanceDate.$lt = toDate.end;
+        }
+
+        if (
+            filters.from &&
+            filters.to &&
+            new Date(filters.from) > new Date(filters.to)
+        ) {
+            throw new Error("From date cannot be after to date");
+        }
+    }
+
     return populateAttendance(
-        Attendance.find().sort({ attendanceDate: -1, checkIn: -1 })
+        Attendance.find(query).sort({
+            attendanceDate: -1,
+            checkIn: -1
+        })
     );
 };
 
@@ -135,6 +194,10 @@ export const updateAttendance = async (
         throw new Error("Invalid ID");
     }
 
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error("Attendance update data is required");
+    }
+
     const allowedFields = ["checkOut", "status", "notes"];
     const providedFields = Object.keys(data);
 
@@ -150,6 +213,13 @@ export const updateAttendance = async (
         throw new Error("Invalid update fields");
     }
 
+    if (
+        data.notes !== undefined &&
+        typeof data.notes !== "string"
+    ) {
+        throw new Error("Notes must be a valid string");
+    }
+
     const attendance = await Attendance.findById(id);
 
     if (!attendance) {
@@ -157,6 +227,10 @@ export const updateAttendance = async (
     }
 
     if (data.checkOut !== undefined) {
+        if (attendance.checkOut) {
+            throw new Error("Attendance already checked out");
+        }
+
         const checkOut = validateDate(data.checkOut);
 
         if (checkOut <= attendance.checkIn) {
@@ -171,10 +245,6 @@ export const updateAttendance = async (
     }
 
     if (data.notes !== undefined) {
-        if (typeof data.notes !== "string") {
-            throw new Error("Notes must be a valid string");
-        }
-
         attendance.notes = data.notes.trim();
     }
 

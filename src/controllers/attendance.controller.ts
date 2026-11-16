@@ -1,4 +1,3 @@
-
 import { RequestHandler } from "express";
 import {
     createAttendance,
@@ -7,6 +6,7 @@ import {
     updateAttendance,
     deleteAttendance
 } from "../services/attendance.service";
+import { AttendanceStatus } from "../interfaces/attendance.interface";
 
 const getId = (value: string | string[] | undefined): string => {
     return Array.isArray(value) ? value[0] : value || "";
@@ -19,98 +19,87 @@ const getErrorMessage = (error: unknown): string => {
 };
 
 const getStatusCode = (message: string): number => {
-    return message.includes("not found") ? 404 : 400;
+    if (message.includes("not found")) return 404;
+    if (message.includes("Internal server error")) return 500;
+    return 400;
 };
 
-export const create = ((req, res) => {
-    createAttendance(req.body)
-        .then(data => {
-            res.status(201).json({
-                success: true,
-                message: "Attendance recorded successfully",
-                data
-            });
-        })
-        .catch(error => {
-            const message = getErrorMessage(error);
+export const create: RequestHandler = async (req, res) => {
+    try {
+        const data = await createAttendance(req.body);
 
-            res.status(getStatusCode(message)).json({
-                success: false,
-                message
-            });
+        res.status(201).json({
+            success: true,
+            message: "Attendance recorded successfully",
+            data
         });
-}) as RequestHandler;
+    } catch (error) {
+        const message = getErrorMessage(error);
+        res.status(getStatusCode(message)).json({ success: false, message });
+    }
+};
 
-export const getAll = ((req, res) => {
-    getAllAttendance()
-        .then(data => {
-            res.status(200).json({
-                success: true,
-                message: "Attendance records retrieved successfully",
-                data
-            });
-        })
-        .catch(error => {
-            res.status(500).json({
-                success: false,
-                message: getErrorMessage(error)
-            });
+export const getAll: RequestHandler = async (req, res) => {
+    try {
+        const data = await getAllAttendance({
+            memberId: req.query.memberId as string | undefined,
+            from: req.query.from as string | undefined,
+            to: req.query.to as string | undefined,
+            status: req.query.status as AttendanceStatus | undefined
         });
-}) as RequestHandler;
 
-export const getById = ((req, res) => {
-    getAttendanceById(getId(req.params.id))
-        .then(data => {
-            res.status(200).json({
-                success: true,
-                message: "Attendance record retrieved successfully",
-                data
-            });
-        })
-        .catch(error => {
-            const message = getErrorMessage(error);
-
-            res.status(getStatusCode(message)).json({
-                success: false,
-                message
-            });
+        res.status(200).json({
+            success: true,
+            message: "Attendance records retrieved successfully",
+            data
         });
-}) as RequestHandler;
+    } catch (error) {
+        const message = getErrorMessage(error);
+        res.status(getStatusCode(message)).json({ success: false, message });
+    }
+};
 
-export const update = ((req, res) => {
-    updateAttendance(getId(req.params.id), req.body)
-        .then(data => {
-            res.status(200).json({
-                success: true,
-                message: "Attendance updated successfully",
-                data
-            });
-        })
-        .catch(error => {
-            const message = getErrorMessage(error);
+export const getById: RequestHandler = async (req, res) => {
+    try {
+        const data = await getAttendanceById(getId(req.params.id));
 
-            res.status(getStatusCode(message)).json({
-                success: false,
-                message
-            });
+        res.status(200).json({
+            success: true,
+            message: "Attendance record retrieved successfully",
+            data
         });
-}) as RequestHandler;
+    } catch (error) {
+        const message = getErrorMessage(error);
+        res.status(getStatusCode(message)).json({ success: false, message });
+    }
+};
 
-export const remove = ((req, res) => {
-    deleteAttendance(getId(req.params.id))
-        .then(data => {
-            res.status(200).json({
-                success: true,
-                message: "Attendance deleted successfully",
-                data
-            });
-        })
-        .catch(error => {
-            const message = getErrorMessage(error);
+export const update: RequestHandler = async (req, res) => {
+    try {
+        const data = await updateAttendance(getId(req.params.id), req.body);
 
-            res.status(getStatusCode(message)).json({
-                success: false,
-                message
-            });
+        res.status(200).json({
+            success: true,
+            message: "Attendance updated successfully",
+            data
         });
-}) as RequestHandler;
+    } catch (error) {
+        const message = getErrorMessage(error);
+        res.status(getStatusCode(message)).json({ success: false, message });
+    }
+};
+
+export const remove: RequestHandler = async (req, res) => {
+    try {
+        const data = await deleteAttendance(getId(req.params.id));
+
+        res.status(200).json({
+            success: true,
+            message: "Attendance deleted successfully",
+            data
+        });
+    } catch (error) {
+        const message = getErrorMessage(error);
+        res.status(getStatusCode(message)).json({ success: false, message });
+    }
+};
