@@ -1,6 +1,13 @@
-
 import { RequestHandler } from "express";
-import { createMember, getAllMembers, getMemberById, updateMember, deleteMember } from "../services/member.service";
+import {
+    createMember,
+    getAllMembers,
+    getMemberById,
+    updateMember,
+    deleteMember,
+    activateMember
+} from "../services/member.service";
+
 const create: RequestHandler = (req, res) => {
     createMember(req.body)
         .then((member) => {
@@ -11,19 +18,29 @@ const create: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Member creation failed";
-
             res.status(400).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Member creation failed"
             });
         });
 };
 
-const getAll: RequestHandler = (_req, res) => {
-    getAllMembers()
+const getAll: RequestHandler = (req, res) => {
+    const status = typeof req.query.status === "string"
+        ? req.query.status.toUpperCase()
+        : "ALL";
+
+    if (!["ACTIVE", "INACTIVE", "ALL"].includes(status)) {
+        res.status(400).json({
+            success: false,
+            message: "Invalid member status"
+        });
+        return;
+    }
+
+    getAllMembers(status as "ACTIVE" | "INACTIVE" | "ALL")
         .then((members) => {
             res.status(200).json({
                 success: true,
@@ -53,17 +70,14 @@ const getById: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to retrieve member";
-
             res.status(404).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Member not found"
             });
         });
 };
-
 
 const update: RequestHandler = (req, res) => {
     const memberId = Array.isArray(req.params.id)
@@ -79,17 +93,14 @@ const update: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to update member";
-
             res.status(400).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Failed to update member"
             });
         });
 };
-
 
 const remove: RequestHandler = (req, res) => {
     const memberId = Array.isArray(req.params.id)
@@ -105,15 +116,36 @@ const remove: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to deactivate member";
-
             res.status(400).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Failed to deactivate member"
             });
         });
 };
 
-export { create, getAll, getById, update, remove };
+const activate: RequestHandler = (req, res) => {
+    const memberId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+
+    activateMember(memberId)
+        .then((member) => {
+            res.status(200).json({
+                success: true,
+                message: "Member activated successfully",
+                data: member
+            });
+        })
+        .catch((error) => {
+            res.status(400).json({
+                success: false,
+                message: error instanceof Error
+                    ? error.message
+                    : "Failed to activate member"
+            });
+        });
+};
+
+export { create, getAll, getById, update, remove, activate };

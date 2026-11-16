@@ -2,12 +2,22 @@
 import User from "../models/user.model";
 import bcrypt from "bcryptjs";
 
-const createMember = async (data: {
+interface CreateMemberInput {
     name: string;
     email: string;
     password: string;
     phone: string;
-}) => {
+}
+
+interface UpdateMemberInput {
+    name?: string;
+    email?: string;
+    phone?: string;
+}
+
+type MemberStatus = "ACTIVE" | "INACTIVE" | "ALL";
+
+const createMember = async (data: CreateMemberInput) => {
     if (!data.name?.trim()) {
         throw new Error("Name is required");
     }
@@ -24,17 +34,13 @@ const createMember = async (data: {
         throw new Error("Password must be at least 8 characters");
     }
 
-    if (!data.phone?.trim()) {
-        throw new Error("Phone number is required");
-    }
-
-    if (!/^0\d{9}$/.test(data.phone)) {
+    if (!data.phone?.trim() || !/^0\d{9}$/.test(data.phone.trim())) {
         throw new Error("Invalid phone number");
     }
 
-    const existingUser = await User.findOne({
-        email: data.email.trim().toLowerCase()
-    });
+    const email = data.email.trim().toLowerCase();
+
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
         throw new Error("Email already registered");
@@ -44,7 +50,7 @@ const createMember = async (data: {
 
     const user = await User.create({
         name: data.name.trim(),
-        email: data.email.trim().toLowerCase(),
+        email,
         password: hashedPassword,
         phone: data.phone.trim(),
         role: "MEMBER",
@@ -57,11 +63,24 @@ const createMember = async (data: {
     return safeUser;
 };
 
-const getAllMembers = async () => {
-    const members = await User.find({
-        role: "MEMBER",
-        isActive: true
-    }).select("-password");
+const getAllMembers = async (
+    status: MemberStatus = "ALL"
+) => {
+    const filter: Record<string, unknown> = {
+        role: "MEMBER"
+    };
+
+    if (status === "ACTIVE") {
+        filter.isActive = true;
+    }
+
+    if (status === "INACTIVE") {
+        filter.isActive = false;
+    }
+
+    const members = await User.find(filter)
+        .select("-password -resetPasswordToken -resetPasswordExpires")
+        .sort({ createdAt: -1 });
 
     return members;
 };
@@ -69,9 +88,8 @@ const getAllMembers = async () => {
 const getMemberById = async (id: string) => {
     const member = await User.findOne({
         _id: id,
-        role: "MEMBER",
-        isActive: true
-    }).select("-password");
+        role: "MEMBER"
+    }).select("-password -resetPasswordToken -resetPasswordExpires");
 
     if (!member) {
         throw new Error("Member not found");
@@ -82,27 +100,25 @@ const getMemberById = async (id: string) => {
 
 const updateMember = async (
     id: string,
-    data: {
-        name?: string;
-        email?: string;
-        phone?: string;
-    }
+    data: UpdateMemberInput
 ) => {
     if (data.name !== undefined && !data.name.trim()) {
         throw new Error("Name cannot be empty");
     }
 
     if (data.email !== undefined) {
-        if (!data.email.trim()) {
+        const email = data.email.trim().toLowerCase();
+
+        if (!email) {
             throw new Error("Email cannot be empty");
         }
 
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             throw new Error("Invalid email format");
         }
 
         const existingUser = await User.findOne({
-            email: data.email.trim().toLowerCase(),
+            email,
             _id: { $ne: id }
         });
 
@@ -110,14 +126,10 @@ const updateMember = async (
             throw new Error("Email already registered");
         }
 
-        data.email = data.email.trim().toLowerCase();
+        data.email = email;
     }
 
     if (data.phone !== undefined) {
-        if (!data.phone.trim()) {
-            throw new Error("Phone number cannot be empty");
-        }
-
         if (!/^0\d{9}$/.test(data.phone.trim())) {
             throw new Error("Invalid phone number");
         }
@@ -139,13 +151,13 @@ const updateMember = async (
             $set: data
         },
         {
-            new: true,
+            returnDocument: "after",
             runValidators: true
         }
-    ).select("-password");
+    ).select("-password -resetPasswordToken -resetPasswordExpires");
 
     if (!member) {
-        throw new Error("Member not found");
+        throw new Error("Active member not found");
     }
 
     return member;
@@ -164,12 +176,36 @@ const deleteMember = async (id: string) => {
             }
         },
         {
-            new: true
+            returnDocument: "after"
         }
-    ).select("-password");
+    ).select("-password -resetPasswordToken -resetPasswordExpires");
 
     if (!member) {
-        throw new Error("Member not found");
+        throw new Error("Active member not found");
+    }
+
+    return member;
+};
+
+const activateMember = async (id: string) => {
+    const member = await User.findOneAndUpdate(
+        {
+            _id: id,
+            role: "MEMBER",
+            isActive: false
+        },
+        {
+            $set: {
+                isActive: true
+            }
+        },
+        {
+            returnDocument: "after"
+        }
+    ).select("-password -resetPasswordToken -resetPasswordExpires");
+
+    if (!member) {
+        throw new Error("Inactive member not found");
     }
 
     return member;
@@ -180,5 +216,6 @@ export {
     getAllMembers,
     getMemberById,
     updateMember,
-    deleteMember
+    deleteMember,
+    activateMember
 };
