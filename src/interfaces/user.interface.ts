@@ -11,4 +11,6 @@ export interface IUser {
     specialization?: string;
     experience?: number;
     qualifications?: string;
+    resetPasswordToken?: string | null;
+    resetPasswordExpires?: Date | null;
 }
