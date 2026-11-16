@@ -1,3 +1,4 @@
+
 import Trainer from "../models/trainer.model";
 
 interface CreateTrainerInput {
@@ -17,6 +18,8 @@ interface UpdateTrainerInput {
     experience?: number;
     qualifications?: string;
 }
+
+type TrainerStatus = "ACTIVE" | "INACTIVE" | "ALL";
 
 const createTrainer = async (data: CreateTrainerInput) => {
     if (!data.name?.trim()) {
@@ -65,15 +68,22 @@ const createTrainer = async (data: CreateTrainerInput) => {
     });
 };
 
-const getAllTrainers = async () => {
-    return await Trainer.find({ isActive: true });
+const getAllTrainers = async (status: TrainerStatus = "ALL") => {
+    const filter: Record<string, unknown> = {};
+
+    if (status === "ACTIVE") {
+        filter.isActive = true;
+    }
+
+    if (status === "INACTIVE") {
+        filter.isActive = false;
+    }
+
+    return await Trainer.find(filter).sort({ createdAt: -1 });
 };
 
 const getTrainerById = async (id: string) => {
-    const trainer = await Trainer.findOne({
-        _id: id,
-        isActive: true
-    });
+    const trainer = await Trainer.findById(id);
 
     if (!trainer) {
         throw new Error("Trainer not found");
@@ -94,6 +104,7 @@ const updateTrainer = async (
         if (!data.name.trim()) {
             throw new Error("Name cannot be empty");
         }
+
         data.name = data.name.trim();
     }
 
@@ -118,6 +129,7 @@ const updateTrainer = async (
         if (!/^0\d{9}$/.test(data.phone.trim())) {
             throw new Error("Invalid phone number");
         }
+
         data.phone = data.phone.trim();
     }
 
@@ -125,6 +137,7 @@ const updateTrainer = async (
         if (!data.specialization.trim()) {
             throw new Error("Specialization cannot be empty");
         }
+
         data.specialization = data.specialization.trim();
     }
 
@@ -148,7 +161,7 @@ const updateTrainer = async (
             $set: data
         },
         {
-            new: true,
+            returnDocument: "after",
             runValidators: true
         }
     );
@@ -170,7 +183,7 @@ const deleteTrainer = async (id: string) => {
             $set: { isActive: false }
         },
         {
-            new: true
+            returnDocument: "after"
         }
     );
 
@@ -181,10 +194,32 @@ const deleteTrainer = async (id: string) => {
     return trainer;
 };
 
+const activateTrainer = async (id: string) => {
+    const trainer = await Trainer.findOneAndUpdate(
+        {
+            _id: id,
+            isActive: false
+        },
+        {
+            $set: { isActive: true }
+        },
+        {
+            returnDocument: "after"
+        }
+    );
+
+    if (!trainer) {
+        throw new Error("Inactive trainer not found");
+    }
+
+    return trainer;
+};
+
 export {
     createTrainer,
     getAllTrainers,
     getTrainerById,
     updateTrainer,
-    deleteTrainer
+    deleteTrainer,
+    activateTrainer
 };

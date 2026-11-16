@@ -5,7 +5,8 @@ import {
     getAllTrainers,
     getTrainerById,
     updateTrainer,
-    deleteTrainer
+    deleteTrainer,
+    activateTrainer
 } from "../services/trainer.service";
 
 const getId = (id: string | string[]) => {
@@ -22,19 +23,29 @@ const create: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Trainer creation failed";
-
             res.status(400).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Trainer creation failed"
             });
         });
 };
 
-const getAll: RequestHandler = (_req, res) => {
-    getAllTrainers()
+const getAll: RequestHandler = (req, res) => {
+    const status = typeof req.query.status === "string"
+        ? req.query.status.toUpperCase()
+        : "ALL";
+
+    if (!["ACTIVE", "INACTIVE", "ALL"].includes(status)) {
+        res.status(400).json({
+            success: false,
+            message: "Invalid trainer status"
+        });
+        return;
+    }
+
+    getAllTrainers(status as "ACTIVE" | "INACTIVE" | "ALL")
         .then((trainers) => {
             res.status(200).json({
                 success: true,
@@ -60,13 +71,11 @@ const getById: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to retrieve trainer";
-
             res.status(404).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Trainer not found"
             });
         });
 };
@@ -102,13 +111,30 @@ const remove: RequestHandler = (req, res) => {
             });
         })
         .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to deactivate trainer";
-
             res.status(404).json({
                 success: false,
-                message
+                message: error instanceof Error
+                    ? error.message
+                    : "Failed to deactivate trainer"
+            });
+        });
+};
+
+const activate: RequestHandler = (req, res) => {
+    activateTrainer(getId(req.params.id))
+        .then((trainer) => {
+            res.status(200).json({
+                success: true,
+                message: "Trainer activated successfully",
+                data: trainer
+            });
+        })
+        .catch((error) => {
+            res.status(404).json({
+                success: false,
+                message: error instanceof Error
+                    ? error.message
+                    : "Failed to activate trainer"
             });
         });
 };
@@ -118,5 +144,6 @@ export {
     getAll,
     getById,
     update,
-    remove
+    remove,
+    activate
 };
