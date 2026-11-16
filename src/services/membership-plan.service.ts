@@ -2,6 +2,8 @@
 import mongoose from "mongoose";
 import MembershipPlan from "../models/membership-plan.model";
 
+export type MembershipPlanStatus = "ACTIVE" | "INACTIVE" | "ALL";
+
 interface CreateMembershipPlanInput {
     name: string;
     description?: string;
@@ -18,15 +20,22 @@ interface UpdateMembershipPlanInput {
     features?: string[];
 }
 
+const validatePlanId = (id: string) => {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new Error("Invalid membership plan ID");
+    }
+};
+
 const validatePlanData = (data: CreateMembershipPlanInput) => {
+    if (!data || typeof data !== "object") {
+        throw new Error("Membership plan data is required");
+    }
+
     if (typeof data.name !== "string" || !data.name.trim()) {
         throw new Error("Plan name is required");
     }
 
-    if (
-        !Number.isInteger(data.durationDays) ||
-        data.durationDays < 1
-    ) {
+    if (!Number.isInteger(data.durationDays) || data.durationDays < 1) {
         throw new Error("Duration must be a positive whole number");
     }
 
@@ -51,7 +60,8 @@ const validatePlanData = (data: CreateMembershipPlanInput) => {
             !Array.isArray(data.features) ||
             !data.features.every(
                 (feature) =>
-                    typeof feature === "string" && feature.trim().length > 0
+                    typeof feature === "string" &&
+                    feature.trim().length > 0
             )
         )
     ) {
@@ -59,18 +69,14 @@ const validatePlanData = (data: CreateMembershipPlanInput) => {
     }
 };
 
-const validatePlanId = (id: string) => {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new Error("Invalid membership plan ID");
-    }
-};
-
 const createMembershipPlan = async (data: CreateMembershipPlanInput) => {
     validatePlanData(data);
 
+    const name = data.name.trim();
+
     const existingPlan = await MembershipPlan.findOne({
         name: {
-            $regex: `^${data.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+            $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
             $options: "i"
         }
     });
@@ -79,31 +85,34 @@ const createMembershipPlan = async (data: CreateMembershipPlanInput) => {
         throw new Error("Membership plan name already exists");
     }
 
-    const plan = await MembershipPlan.create({
-        name: data.name.trim(),
+    return MembershipPlan.create({
+        name,
         description: data.description?.trim(),
         durationDays: data.durationDays,
         price: data.price,
         features: data.features?.map((feature) => feature.trim()) ?? [],
         isActive: true
     });
-
-    return plan;
 };
 
-const getAllMembershipPlans = async () => {
-    return MembershipPlan.find({
-        isActive: true
-    }).sort({ createdAt: -1 });
+const getAllMembershipPlans = async (
+    status: MembershipPlanStatus = "ALL"
+) => {
+    const filter: Record<string, unknown> = {};
+
+    if (status === "ACTIVE") {
+        filter.isActive = true;
+    } else if (status === "INACTIVE") {
+        filter.isActive = false;
+    }
+
+    return MembershipPlan.find(filter).sort({ createdAt: -1 });
 };
 
 const getMembershipPlanById = async (id: string) => {
     validatePlanId(id);
 
-    const plan = await MembershipPlan.findOne({
-        _id: id,
-        isActive: true
-    });
+    const plan = await MembershipPlan.findById(id);
 
     if (!plan) {
         throw new Error("Membership plan not found");
@@ -118,6 +127,10 @@ const updateMembershipPlan = async (
 ) => {
     validatePlanId(id);
 
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error("Membership plan update data is required");
+    }
+
     const allowedFields = [
         "name",
         "description",
@@ -131,7 +144,9 @@ const updateMembershipPlan = async (
     );
 
     if (invalidFields.length > 0) {
-        throw new Error(`Invalid update fields: ${invalidFields.join(", ")}`);
+        throw new Error(
+            `Invalid update fields: ${invalidFields.join(", ")}`
+        );
     }
 
     if (Object.keys(data).length === 0) {
@@ -143,10 +158,12 @@ const updateMembershipPlan = async (
             throw new Error("Plan name cannot be empty");
         }
 
+        const name = data.name.trim();
+
         const existingPlan = await MembershipPlan.findOne({
             _id: { $ne: id },
             name: {
-                $regex: `^${data.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+                $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
                 $options: "i"
             }
         });
@@ -155,7 +172,7 @@ const updateMembershipPlan = async (
             throw new Error("Membership plan name already exists");
         }
 
-        data.name = data.name.trim();
+        data.name = name;
     }
 
     if (data.description !== undefined) {
@@ -192,7 +209,8 @@ const updateMembershipPlan = async (
             !Array.isArray(data.features) ||
             !data.features.every(
                 (feature) =>
-                    typeof feature === "string" && feature.trim().length > 0
+                    typeof feature === "string" &&
+                    feature.trim().length > 0
             )
         ) {
             throw new Error("Features must be a list of non-empty strings");
@@ -231,9 +249,7 @@ const deleteMembershipPlan = async (id: string) => {
             isActive: true
         },
         {
-            $set: {
-                isActive: false
-            }
+            $set: { isActive: false }
         },
         {
             new: true
@@ -247,10 +263,35 @@ const deleteMembershipPlan = async (id: string) => {
     return plan;
 };
 
+const activateMembershipPlan = async (id: string) => {
+    validatePlanId(id);
+
+    const plan = await MembershipPlan.findOneAndUpdate(
+        {
+            _id: id,
+            isActive: false
+        },
+        {
+            $set: { isActive: true }
+        },
+        {
+            new: true,
+            runValidators: true
+        }
+    );
+
+    if (!plan) {
+        throw new Error("Inactive membership plan not found");
+    }
+
+    return plan;
+};
+
 export {
     createMembershipPlan,
     getAllMembershipPlans,
     getMembershipPlanById,
     updateMembershipPlan,
-    deleteMembershipPlan
+    deleteMembershipPlan,
+    activateMembershipPlan
 };

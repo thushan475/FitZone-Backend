@@ -5,124 +5,168 @@ import {
     getAllMembershipPlans,
     getMembershipPlanById,
     updateMembershipPlan,
-    deleteMembershipPlan
+    deleteMembershipPlan,
+    activateMembershipPlan,
+    MembershipPlanStatus
 } from "../services/membership-plan.service";
 
 const getId = (id: string | string[]) => {
     return Array.isArray(id) ? id[0] : id;
 };
 
-const create: RequestHandler = (req, res) => {
-    createMembershipPlan(req.body)
-        .then((plan) => {
-            res.status(201).json({
-                success: true,
-                message: "Membership plan created successfully",
-                data: plan
-            });
-        })
-        .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Membership plan creation failed";
+const getErrorMessage = (error: unknown, fallback: string) => {
+    return error instanceof Error ? error.message : fallback;
+};
 
+const getStatusCode = (message: string) => {
+    return message.includes("not found") ? 404 : 400;
+};
+
+const create: RequestHandler = async (req, res) => {
+    try {
+        const plan = await createMembershipPlan(req.body);
+
+        res.status(201).json({
+            success: true,
+            message: "Membership plan created successfully",
+            data: plan
+        });
+    } catch (error) {
+        const message = getErrorMessage(
+            error,
+            "Membership plan creation failed"
+        );
+
+        res.status(400).json({
+            success: false,
+            message
+        });
+    }
+};
+
+const getAll: RequestHandler = async (req, res) => {
+    try {
+        const status = req.query.status
+            ? String(req.query.status).toUpperCase()
+            : "ALL";
+
+        if (!["ACTIVE", "INACTIVE", "ALL"].includes(status)) {
             res.status(400).json({
                 success: false,
-                message
+                message: "Invalid status. Use ACTIVE, INACTIVE or ALL"
             });
+            return;
+        }
+
+        const plans = await getAllMembershipPlans(
+            status as MembershipPlanStatus
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Membership plans retrieved successfully",
+            data: plans
         });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: getErrorMessage(
+                error,
+                "Failed to retrieve membership plans"
+            )
+        });
+    }
 };
 
-const getAll: RequestHandler = (_req, res) => {
-    getAllMembershipPlans()
-        .then((plans) => {
-            res.status(200).json({
-                success: true,
-                message: "Membership plans retrieved successfully",
-                data: plans
-            });
-        })
-        .catch(() => {
-            res.status(500).json({
-                success: false,
-                message: "Failed to retrieve membership plans"
-            });
+const getById: RequestHandler = async (req, res) => {
+    try {
+        const plan = await getMembershipPlanById(getId(req.params.id));
+
+        res.status(200).json({
+            success: true,
+            message: "Membership plan retrieved successfully",
+            data: plan
         });
+    } catch (error) {
+        const message = getErrorMessage(
+            error,
+            "Failed to retrieve membership plan"
+        );
+
+        res.status(getStatusCode(message)).json({
+            success: false,
+            message
+        });
+    }
 };
 
-const getById: RequestHandler = (req, res) => {
-    getMembershipPlanById(getId(req.params.id))
-        .then((plan) => {
-            res.status(200).json({
-                success: true,
-                message: "Membership plan retrieved successfully",
-                data: plan
-            });
-        })
-        .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to retrieve membership plan";
+const update: RequestHandler = async (req, res) => {
+    try {
+        const plan = await updateMembershipPlan(
+            getId(req.params.id),
+            req.body
+        );
 
-            const statusCode = message === "Membership plan not found"
-                ? 404
-                : 400;
-
-            res.status(statusCode).json({
-                success: false,
-                message
-            });
+        res.status(200).json({
+            success: true,
+            message: "Membership plan updated successfully",
+            data: plan
         });
+    } catch (error) {
+        const message = getErrorMessage(
+            error,
+            "Failed to update membership plan"
+        );
+
+        res.status(getStatusCode(message)).json({
+            success: false,
+            message
+        });
+    }
 };
 
-const update: RequestHandler = (req, res) => {
-    updateMembershipPlan(getId(req.params.id), req.body)
-        .then((plan) => {
-            res.status(200).json({
-                success: true,
-                message: "Membership plan updated successfully",
-                data: plan
-            });
-        })
-        .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to update membership plan";
+const remove: RequestHandler = async (req, res) => {
+    try {
+        const plan = await deleteMembershipPlan(getId(req.params.id));
 
-            const statusCode = message === "Membership plan not found"
-                ? 404
-                : 400;
-
-            res.status(statusCode).json({
-                success: false,
-                message
-            });
+        res.status(200).json({
+            success: true,
+            message: "Membership plan deactivated successfully",
+            data: plan
         });
+    } catch (error) {
+        const message = getErrorMessage(
+            error,
+            "Failed to deactivate membership plan"
+        );
+
+        res.status(getStatusCode(message)).json({
+            success: false,
+            message
+        });
+    }
 };
 
-const remove: RequestHandler = (req, res) => {
-    deleteMembershipPlan(getId(req.params.id))
-        .then((plan) => {
-            res.status(200).json({
-                success: true,
-                message: "Membership plan deactivated successfully",
-                data: plan
-            });
-        })
-        .catch((error) => {
-            const message = error instanceof Error
-                ? error.message
-                : "Failed to deactivate membership plan";
+const activate: RequestHandler = async (req, res) => {
+    try {
+        const plan = await activateMembershipPlan(getId(req.params.id));
 
-            const statusCode = message === "Membership plan not found"
-                ? 404
-                : 400;
-
-            res.status(statusCode).json({
-                success: false,
-                message
-            });
+        res.status(200).json({
+            success: true,
+            message: "Membership plan activated successfully",
+            data: plan
         });
+    } catch (error) {
+        const message = getErrorMessage(
+            error,
+            "Failed to activate membership plan"
+        );
+
+        res.status(getStatusCode(message)).json({
+            success: false,
+            message
+        });
+    }
 };
 
 export {
@@ -130,5 +174,6 @@ export {
     getAll,
     getById,
     update,
-    remove
+    remove,
+    activate
 };
