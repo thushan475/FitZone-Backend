@@ -39,6 +39,14 @@ const userSchema = new Schema<IUser>(
         resetPasswordExpires: {
             type: Date,
             default: null
+        },
+        refreshTokenHash: {
+            type: String,
+            default: null
+        },
+        refreshTokenExpiresAt: {
+            type: Date,
+            default: null
         }
     },
     {

@@ -1,4 +1,3 @@
-
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -16,6 +15,73 @@ interface LoginInput {
     email: string;
     password: string;
 }
+
+const ACCESS_TOKEN_EXPIRY = "15m";
+const REFRESH_TOKEN_EXPIRY = "7d";
+const REFRESH_TOKEN_DURATION = 7 * 24 * 60 * 60 * 1000;
+
+const getJwtSecrets = () => {
+    const accessSecret = process.env.JWT_SECRET;
+    const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
+
+    if (!accessSecret || !refreshSecret) {
+        throw new Error("JWT secrets are not configured");
+    }
+
+    return { accessSecret, refreshSecret };
+};
+
+const createAccessToken = (user: {
+    _id: unknown;
+    role: string;
+}) => {
+    const { accessSecret } = getJwtSecrets();
+
+    return jwt.sign(
+        {
+            userId: user._id,
+            role: user.role
+        },
+        accessSecret,
+        {
+            expiresIn: ACCESS_TOKEN_EXPIRY
+        }
+    );
+};
+
+const createRefreshToken = (userId: string) => {
+    const { refreshSecret } = getJwtSecrets();
+
+    return jwt.sign(
+        {
+            userId,
+            tokenType: "refresh"
+        },
+        refreshSecret,
+        {
+            expiresIn: REFRESH_TOKEN_EXPIRY
+        }
+    );
+};
+
+const hashToken = (token: string) => {
+    return crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+};
+
+const createTokenPair = (user: {
+    _id: unknown;
+    role: string;
+}) => {
+    const userId = String(user._id);
+
+    return {
+        token: createAccessToken(user),
+        refreshToken: createRefreshToken(userId)
+    };
+};
 
 export const registerUser = async (input: RegisterInput) => {
     const { name, email, password, phone } = input;
@@ -68,23 +134,100 @@ export const loginUser = async (input: LoginInput) => {
         throw new Error("Invalid email or password");
     }
 
-    const token = jwt.sign(
-        {
-            userId: user._id,
-            role: user.role
-        },
-        process.env.JWT_SECRET as string,
-        {
-            expiresIn: "86400s"
-        }
+    const tokens = createTokenPair(user);
+
+    user.refreshTokenHash = hashToken(tokens.refreshToken);
+    user.refreshTokenExpiresAt = new Date(
+        Date.now() + REFRESH_TOKEN_DURATION
     );
+
+    await user.save();
 
     const { password: _password, ...safeUser } = user.toObject();
 
     return {
         user: safeUser,
-        token
+        token: tokens.token,
+        refreshToken: tokens.refreshToken
     };
+};
+
+export const refreshAuthToken = async (refreshToken: string) => {
+    if (!refreshToken) {
+        throw new Error("Refresh token is required");
+    }
+
+    const { refreshSecret } = getJwtSecrets();
+
+    let decoded: jwt.JwtPayload;
+
+    try {
+        const verified = jwt.verify(refreshToken, refreshSecret);
+
+        if (
+            typeof verified === "string" ||
+            typeof verified.userId !== "string" ||
+            verified.tokenType !== "refresh"
+        ) {
+            throw new Error("Invalid refresh token");
+        }
+
+        decoded = verified;
+    } catch {
+        throw new Error("Invalid or expired refresh token");
+    }
+
+    const user = await User.findById(decoded.userId);
+
+    if (
+        !user ||
+        !user.isActive ||
+        !user.refreshTokenHash ||
+        !user.refreshTokenExpiresAt ||
+        user.refreshTokenExpiresAt.getTime() <= Date.now()
+    ) {
+        throw new Error("Refresh session expired. Please login again.");
+    }
+
+    const incomingHash = hashToken(refreshToken);
+
+    if (incomingHash !== user.refreshTokenHash) {
+        throw new Error("Refresh token is no longer valid");
+    }
+
+    const tokens = createTokenPair(user);
+
+    user.refreshTokenHash = hashToken(tokens.refreshToken);
+    user.refreshTokenExpiresAt = new Date(
+        Date.now() + REFRESH_TOKEN_DURATION
+    );
+
+    await user.save();
+
+    return {
+        token: tokens.token,
+        refreshToken: tokens.refreshToken
+    };
+};
+
+export const logoutUser = async (refreshToken?: string) => {
+    if (!refreshToken) {
+        return;
+    }
+
+    const incomingHash = hashToken(refreshToken);
+
+    await User.updateOne(
+        {
+            refreshTokenHash: incomingHash
+        },
+        {
+            $set: {
+                refreshTokenHash: null,
+                refreshTokenExpiresAt: null
+            }
+        }
+    );
 };
 
 export const forgotPassword = async (email: string) => {
@@ -117,7 +260,6 @@ export const forgotPassword = async (email: string) => {
         const smtpPass = process.env.SMTP_PASS;
         const smtpFrom = process.env.SMTP_FROM;
         const frontendUrl = process.env.FRONTEND_URL;
-
 
         if (
             !smtpHost ||
@@ -160,7 +302,6 @@ export const forgotPassword = async (email: string) => {
                 </div>
             `
         });
-
     } catch (error) {
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
@@ -199,6 +340,8 @@ export const resetPassword = async (
     user.password = hashedPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.refreshTokenHash = null;
+    user.refreshTokenExpiresAt = null;
 
     await user.save();
 
