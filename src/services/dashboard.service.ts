@@ -1,4 +1,3 @@
-
 import User from "../models/user.model";
 import Trainer from "../models/trainer.model";
 import Subscription from "../models/subscription.model";
@@ -6,6 +5,23 @@ import Attendance from "../models/attendance.model";
 import Payment from "../models/payment.model";
 
 export const getDashboardData = async () => {
+    const now = new Date();
+
+    const sriLankaOffset = 5.5 * 60 * 60 * 1000;
+    const sriLankaNow = new Date(now.getTime() + sriLankaOffset);
+
+    const todayStart = new Date(
+        Date.UTC(
+            sriLankaNow.getUTCFullYear(),
+            sriLankaNow.getUTCMonth(),
+            sriLankaNow.getUTCDate()
+        ) - sriLankaOffset
+    );
+
+    const tomorrowStart = new Date(
+        todayStart.getTime() + 24 * 60 * 60 * 1000
+    );
+
     const [
         totalMembers,
         totalTrainers,
@@ -17,18 +33,22 @@ export const getDashboardData = async () => {
             role: "MEMBER",
             isActive: true
         }),
+
         Trainer.countDocuments({
             isActive: true
         }),
+
         Subscription.countDocuments({
             status: "ACTIVE"
         }),
+
         Attendance.countDocuments({
-            date: {
-                $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-                $lt: new Date(new Date().setHours(24, 0, 0, 0))
+            attendanceDate: {
+                $gte: todayStart,
+                $lt: tomorrowStart
             }
         }),
+
         Payment.aggregate([
             {
                 $match: {
