@@ -9,4 +9,6 @@ export interface IUser {
     isActive: boolean;
     resetPasswordToken?: string | null;
     resetPasswordExpires?: Date | null;
+    refreshTokenHash?: string | null;
+    refreshTokenExpiresAt?: Date | null;
 }
