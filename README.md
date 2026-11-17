@@ -211,3 +211,40 @@ https://fit-zone-frontend-omega.vercel.app
 ---
 
 Developed as an academic project for the Rapid Application Development (RAD) module.
+
+## Authentication and Token Refresh
+
+FitZone uses JWT-based authentication with automatic access token refresh.
+
+- Access tokens expire after 15 minutes.
+- Refresh tokens expire after 7 days.
+- Refresh tokens are stored in HTTP-only cookies.
+- Refresh tokens are rotated when a refresh request succeeds.
+- Refresh token hashes and expiry information are stored in the user database.
+- Logout invalidates the refresh token.
+- Password reset also invalidates the existing refresh token.
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Register a user |
+| POST | `/api/auth/login` | Login and receive an access token |
+| POST | `/api/auth/refresh` | Refresh the access token using the refresh cookie |
+| POST | `/api/auth/logout` | Logout and invalidate the refresh token |
+| GET | `/api/auth/me` | Get the authenticated user profile |
+| POST | `/api/auth/forgot-password` | Request a password reset |
+| POST | `/api/auth/reset-password` | Reset the password |
+
+The refresh endpoint requires the HTTP-only refresh cookie. The frontend must send requests with credentials enabled.
+
+### Additional Environment Variables
+
+Add the following variable to your `.env` file:
+
+```env
+REFRESH_TOKEN_SECRET=your_secure_refresh_token_secret
+```
+
+Use a separate, strong secret for refresh tokens. Never commit `.env` files or expose secret values.
+
