@@ -319,16 +319,36 @@ export const updateWorkoutPlan = async (
 export const deleteWorkoutPlan = async (id: string) => {
     validateObjectId(id);
 
-    const workoutPlan = await WorkoutPlan.findByIdAndDelete(id);
+    const workoutPlan = await WorkoutPlan.findOneAndUpdate(
+        {
+            _id: id,
+            isActive: true
+        },
+        {
+            $set: {
+                isActive: false
+            }
+        },
+        {
+            returnDocument: "after",
+            runValidators: true
+        }
+    );
 
     if (!workoutPlan) {
-        throw new Error("Workout plan not found");
+        throw new Error("Active workout plan not found");
     }
 
-    return workoutPlan;
+    return populateWorkoutPlan(
+        WorkoutPlan.findById(workoutPlan._id)
+    );
 };
+
 export const getMyWorkoutPlans = async (userId: string) => {
-    const plans = await WorkoutPlan.find({ member: userId })
+    const plans = await WorkoutPlan.find({
+        member: userId,
+        isActive: true
+    })
         .populate("member", "name email phone")
         .populate(
             "trainer",
