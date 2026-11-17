@@ -7,18 +7,53 @@ import { IAnalyticsData } from "../interfaces/analytics.interface";
 
 const getAnalyticsData = async (): Promise<IAnalyticsData> => {
     const now = new Date();
+    const sriLankaOffset = 5.5 * 60 * 60 * 1000;
+    const sriLankaNow = new Date(now.getTime() + sriLankaOffset);
 
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
+    const getSriLankaDayStart = (date: Date) => {
+        return new Date(
+            Date.UTC(
+                date.getUTCFullYear(),
+                date.getUTCMonth(),
+                date.getUTCDate()
+            ) - sriLankaOffset
+        );
+    };
 
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const todayStart = getSriLankaDayStart(sriLankaNow);
+    const tomorrowStart = new Date(todayStart.getTime() + 86400000);
 
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const monthStart = new Date(
+        Date.UTC(
+            sriLankaNow.getUTCFullYear(),
+            sriLankaNow.getUTCMonth(),
+            1
+        ) - sriLankaOffset
+    );
 
-    const yearStart = new Date(now.getFullYear(), 0, 1);
-    const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
+    const nextMonthStart = new Date(
+        Date.UTC(
+            sriLankaNow.getUTCFullYear(),
+            sriLankaNow.getUTCMonth() + 1,
+            1
+        ) - sriLankaOffset
+    );
+
+    const yearStart = new Date(
+        Date.UTC(
+            sriLankaNow.getUTCFullYear(),
+            0,
+            1
+        ) - sriLankaOffset
+    );
+
+    const nextYearStart = new Date(
+        Date.UTC(
+            sriLankaNow.getUTCFullYear() + 1,
+            0,
+            1
+        ) - sriLankaOffset
+    );
 
     const [
         totalMembers,
@@ -81,8 +116,16 @@ const getAnalyticsData = async (): Promise<IAnalyticsData> => {
         Attendance.countDocuments({
             attendanceDate: { $gte: monthStart, $lt: nextMonthStart }
         }),
-        Subscription.countDocuments({ status: "ACTIVE" }),
-        Subscription.countDocuments({ status: "EXPIRED" }),
+        Subscription.countDocuments({
+            status: "ACTIVE",
+            endDate: { $gte: now }
+        }),
+        Subscription.countDocuments({
+            $or: [
+                { status: "EXPIRED" },
+                { status: "ACTIVE", endDate: { $lt: now } }
+            ]
+        }),
         Subscription.countDocuments({ status: "CANCELLED" })
     ]);
 

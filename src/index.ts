@@ -16,6 +16,7 @@ import workoutPlanRoutes from "./routes/workout-plan.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import paymentRoutes from "./routes/payment.routes";
 import analyticsRoutes from "./routes/analytics.routes";
+import settingsRoutes from "./routes/settings.routes";
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use("/api/workout-plans", workoutPlanRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/settings", settingsRoutes);
 
 const PORT = process.env.PORT || 5000;
 
